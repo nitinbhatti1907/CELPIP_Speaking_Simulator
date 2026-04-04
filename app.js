@@ -912,7 +912,7 @@ function renderWelcome() {
       <section class="panel hero">
         <div class="hero-grid">
           <div>
-            <h2>Official-feel speaking practice at home</h2>
+            <h2>Official Speaking Practice Simulator</h2>
             <p>This simulator follows the CELPIP-style speaking order of 8 tasks. It uses standard task timings, automatically moves from prep to speaking, supports prompt pasting and image uploads, and lets you download each task recording when you finish.</p>
           </div>
           <div class="info-grid">
