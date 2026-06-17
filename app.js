@@ -878,53 +878,40 @@ function taskDescriptor(task) {
   return `${task.prep}s prep, ${task.speak}s speak`;
 }
 
-function renderTaskSidebar() {
-  return `
-    <aside class="panel sidebar">
-      <h3>Speaking flow</h3>
-      <div class="task-list">
-        ${TASKS.map((task, index) => {
-          const done = state.completedTaskKeys.includes(task.key);
-          const current = index === state.currentTaskIndex;
-          return `
-            <div class="task-pill ${done ? 'done' : ''} ${current ? 'current' : ''}">
-              <strong>${task.label}: ${task.title}</strong>
-              <div class="small">${taskDescriptor(task)}</div>
-            </div>`;
-        }).join('')}
-      </div>
-      <div class="hr"></div>
-      <div class="help-text small-text">This simulator follows the full 8-task speaking flow, including the two-part Task 5 screen sequence and image-based tasks.</div>
-    </aside>`;
-}
-
 function renderWelcome() {
   return `
     <div class="app-shell">
       <div class="topbar">
         <div class="brand">
           <h1>CELPIP Speaking Simulator</h1>
-          <p>Task-by-task speaking practice with official-style timings, local microphone recording, image support, and prep notes.</p>
+          <p>Realistic, task-by-task speaking practice with official-style timings, local microphone recording, image tasks, and prep notes.</p>
         </div>
-        <div class="badge"><span class="badge-dot"></span>Mic required - recordings stay local in your browser</div>
+        <div class="badge"><span class="badge-dot"></span>Mic required · recordings stay in your browser</div>
       </div>
 
       <section class="panel hero">
         <div class="hero-grid">
           <div>
-            <h2>Official Speaking Practice Simulator</h2>
-            <p>This simulator follows the CELPIP-style speaking order of 8 tasks. It uses standard task timings, automatically moves from prep to speaking, supports prompt pasting and image uploads, and lets you download each task recording when you finish.</p>
+            <span class="hero-kicker">8-Task Speaking Test</span>
+            <h2>Practice the full <span class="accent">CELPIP Speaking</span> test, exactly as it flows</h2>
+            <p>This simulator follows the official 8-task order with standard timings. It moves automatically from preparation to speaking, supports prompt pasting and image uploads, records your voice locally, and lets you review or download every task when you finish.</p>
+            <div class="button-row" style="margin-top:22px;">
+              <button class="btn primary lg" data-action="start-exam">Start speaking simulator</button>
+              <button class="btn" data-action="reset-all">Clear everything</button>
+            </div>
           </div>
           <div class="info-grid">
-            <div class="info-card"><strong>Task 3 and Task 4</strong><span>Image-based scene and prediction practice.</span></div>
-            <div class="info-card"><strong>Task 5</strong><span>Two-option compare and persuade flow with two images.</span></div>
-            <div class="info-card"><strong>Prep notes</strong><span>Visible during prep and also during your speaking phase.</span></div>
-            <div class="info-card"><strong>Downloads</strong><span>Optional download for each task recording.</span></div>
+            <div class="info-card"><div class="ic">🖼️</div><strong>Task 3 &amp; 4</strong><span>Image-based scene description and prediction practice.</span></div>
+            <div class="info-card"><div class="ic">⚖️</div><strong>Task 5</strong><span>Two-option compare and persuade flow with two images.</span></div>
+            <div class="info-card"><div class="ic">📝</div><strong>Prep notes</strong><span>Stay visible during prep and while you speak.</span></div>
+            <div class="info-card"><div class="ic">⬇️</div><strong>Downloads</strong><span>Save each task recording with its transcript.</span></div>
           </div>
         </div>
-        <div class="button-row" style="margin-top:18px;">
-          <button class="btn primary" data-action="start-exam">Start speaking simulator</button>
-          <button class="btn" data-action="reset-all">Clear everything</button>
+
+        <div class="steps">
+          <div class="step"><div class="num">1</div><strong>Set up the task</strong><span>Paste the question and add any image before the timer starts.</span></div>
+          <div class="step"><div class="num">2</div><strong>Prep &amp; speak</strong><span>The simulator counts down prep, then records your answer automatically.</span></div>
+          <div class="step"><div class="num">3</div><strong>Review results</strong><span>Play back, download, and read the transcript for every task.</span></div>
         </div>
       </section>
     </div>`;
@@ -1027,18 +1014,18 @@ function renderExam() {
           <h1>${task.label}: ${task.title}</h1>
           <p>Automatic exam flow is running. Prep notes stay visible during your speaking phase.</p>
         </div>
-        <div style="display:flex;gap:10px;align-items:center;">
-          <button class="btn danger" data-action="exit-to-summary" style="padding:8px 14px;font-size:13px;">Exit mock test</button>
+        <div class="topbar-actions">
+          <button class="btn danger" data-action="exit-to-summary">Exit mock test</button>
           <div class="badge"><span class="badge-dot"></span>${phaseLabel()}</div>
         </div>
       </div>
 
       <main class="main">
-        <section class="panel card">
+        <section class="panel exam-bar">
           <div class="metrics">
             <div class="metric"><div class="label">Task</div><div class="value">${task.label}</div></div>
-            <div class="metric"><div class="label">Type</div><div class="value" style="font-size:18px;">${task.title}</div></div>
-            <div class="metric"><div class="label">Phase</div><div id="phase-value" class="value" style="font-size:18px;">${phaseLabel()}</div></div>
+            <div class="metric"><div class="label">Type</div><div class="value" style="font-size:17px;">${task.title}</div></div>
+            <div class="metric"><div class="label">Phase</div><div id="phase-value" class="value" style="font-size:17px;">${phaseLabel()}</div></div>
             <div class="metric timer ${state.phaseSecondsLeft <= 10 ? 'alert' : ''}" id="timer-metric"><div class="label">Time left</div><div id="timer-value" class="value">${formatTime(Math.max(0, state.phaseSecondsLeft))}</div></div>
           </div>
         </section>
@@ -1073,11 +1060,9 @@ function renderRegularExam(task, data) {
         <div class="audio-card">
           <div class="mini-row" style="justify-content:space-between; margin-bottom:12px;">
             <strong>Mic level</strong>
-            <span class="muted small-text">Local only</span>
+            <span class="rec-indicator"><span class="live-dot"></span>Local only</span>
           </div>
-          <div style="height:12px;border-radius:999px;background:#edf2f7;border:1px solid var(--border);overflow:hidden;">
-            <div id="vu-bar" style="height:100%;width:3%;background:linear-gradient(90deg,#22c55e,#f59e0b,#ef4444);"></div>
-          </div>
+          <div class="vu-track"><div id="vu-bar" class="vu-fill"></div></div>
         </div>
         <div class="button-row">
           <button class="btn warning" data-action="stop-now">Stop this task now</button>
@@ -1093,67 +1078,72 @@ function renderTask5Exam(task, data) {
   if (state.phase === 'task5-choose') {
     return `
       <section class="panel card question-box">
-        <div class="label">Task 5 - Part 1</div>
+        <div class="label">Task 5 · Part 1 — Choose</div>
         <div class="content">${escapeHtml(data.prompt || 'No prompt entered.')}</div>
       </section>
-      <div class="two-col">
-        <section class="panel card sticky-top">
-          <h3>Prep notes</h3>
-          <div class="muted" style="margin-bottom:12px;">Choose one option. You do not need to speak in Part 1, but your notes stay visible later.</div>
-          <textarea id="notes-input" class="notes-box" placeholder="Why is your choice better? Write quick bullets here...">${escapeHtml(data.notes)}</textarea>
-        </section>
-        <section class="panel card">
-          <div class="section-title">
-            <div>
-              <h3>Choose your option</h3>
-              <div class="sub">If you do not choose one before time ends, the simulator keeps Option A by default.</div>
-            </div>
-            <div class="choice-chip">Current choice: Option ${selected}</div>
+
+      <section class="panel card">
+        <div class="section-title">
+          <div>
+            <h3>Choose your option</h3>
+            <div class="sub">If you do not choose one before time ends, the simulator keeps Option A by default.</div>
           </div>
-          <div class="option-grid">
-            ${renderOptionCard('A', data.optionA, selected)}
-            ${renderOptionCard('B', data.optionB, selected)}
-          </div>
-        </section>
-      </div>`;
+          <div class="choice-chip">Current choice: Option ${selected}</div>
+        </div>
+        <div class="option-grid">
+          ${renderOptionCard('A', data.optionA, selected)}
+          ${renderOptionCard('B', data.optionB, selected)}
+        </div>
+      </section>
+
+      <section class="panel card">
+        <h3>Prep notes</h3>
+        <div class="muted" style="margin-bottom:12px;">You do not need to speak in Part 1, but your notes stay visible in Part 2.</div>
+        <textarea id="notes-input" class="notes-box" placeholder="Why is your choice better? Write quick bullets here...">${escapeHtml(data.notes)}</textarea>
+      </section>`;
   }
 
   return `
     <section class="panel card question-box">
-      <div class="label">Task 5 - Part 2</div>
+      <div class="label">Task 5 · Part 2 — Persuade</div>
       <div class="content">Persuade the other supervisor that your chosen activity is the better choice by comparing the two options.</div>
     </section>
 
+    <section class="panel card">
+      <div class="section-title">
+        <div>
+          <h3>Compare and persuade</h3>
+          <div class="sub">Left card is the other option. Right card is your chosen option.</div>
+        </div>
+        <div class="choice-chip">Your choice: ${selected === 'A' ? escapeHtml(data.optionA.title || 'Option A') : escapeHtml(data.optionB.title || 'Option B')}</div>
+      </div>
+      <div class="option-grid">
+        ${renderOptionCard(other, data[`option${other}`], selected, true)}
+        ${renderOptionCard(selected, data[`option${selected}`], selected, false, true)}
+      </div>
+    </section>
+
     <div class="two-col">
-      <section class="panel card sticky-top">
+      <section class="panel card">
         <h3>Prep notes</h3>
         <div class="muted" style="margin-bottom:12px;">Your notes remain visible while you speak.</div>
         <textarea id="notes-input" class="notes-box" placeholder="Write quick bullets here...">${escapeHtml(data.notes)}</textarea>
       </section>
-      <section class="panel card">
-        <div class="section-title">
-          <div>
-            <h3>Compare and persuade</h3>
-            <div class="sub">Left side shows the other option. Right side shows your chosen option.</div>
-          </div>
-          <div class="choice-chip">Your choice: ${selected === 'A' ? escapeHtml(data.optionA.title || 'Option A') : escapeHtml(data.optionB.title || 'Option B')}</div>
-        </div>
-        <div class="option-grid">
-          ${renderOptionCard(other, data[`option${other}`], selected, true)}
-          ${renderOptionCard(selected, data[`option${selected}`], selected, false, true)}
+      <section class="panel card response-panel">
+        <div>
+          <h3>Recording area</h3>
+          <div class="muted">Recording starts automatically after Part 2 prep.</div>
         </div>
         ${renderRecordingRuntimeBox()}
-        <div class="audio-card" style="margin-top:16px;">
+        <div class="audio-card">
           <div class="mini-row" style="justify-content:space-between; margin-bottom:12px;">
             <strong>Mic level</strong>
-            <span class="muted small-text">Recording starts automatically after Part 2 prep.</span>
+            <span class="rec-indicator"><span class="live-dot"></span>Local only</span>
           </div>
-          <div style="height:12px;border-radius:999px;background:#edf2f7;border:1px solid var(--border);overflow:hidden;">
-            <div id="vu-bar" style="height:100%;width:3%;background:linear-gradient(90deg,#22c55e,#f59e0b,#ef4444);"></div>
-          </div>
-          <div class="button-row" style="margin-top:14px;">
-            <button class="btn warning" data-action="stop-now">Stop this task now</button>
-          </div>
+          <div class="vu-track"><div id="vu-bar" class="vu-fill"></div></div>
+        </div>
+        <div class="button-row">
+          <button class="btn warning" data-action="stop-now">Stop this task now</button>
         </div>
       </section>
     </div>`;
@@ -1194,16 +1184,18 @@ function renderRecordingRuntimeBox() {
 
 function renderOptionCard(key, option, selected, isOther = false, highlightChoice = false) {
   const titleText = option.title || `Option ${key}`;
-  let heading = titleText;
-  if (isOther) heading = `Other choice - ${titleText}`;
-  if (highlightChoice) heading = `Your choice - ${titleText}`;
+  const isSelected = (selected === key && !isOther) || highlightChoice;
+  let tag = `Option ${key}`;
+  if (isOther) tag = 'Other option';
+  if (highlightChoice) tag = 'Your choice';
   return `
-    <div class="option-card ${(selected === key && !isOther) || highlightChoice ? 'selected' : ''}" data-option-card="${key}">
+    <div class="option-card ${isSelected ? 'selected' : ''}" data-option-card="${key}">
       <div class="image-wrap">${option.image ? `<img src="${option.image}" alt="${escapeHtml(titleText)}" />` : `<div class="muted">No image</div>`}</div>
       <div class="body">
-        <h4>${escapeHtml(heading)}</h4>
+        <span class="pill-tag">${tag}</span>
+        <h4>${escapeHtml(titleText)}</h4>
         <div class="desc">${escapeHtml(option.description || '(no details entered)')}</div>
-        ${state.phase === 'task5-choose' ? `<div class="button-row" style="margin-top:14px;"><button class="btn ${selected === key ? 'primary' : ''}" data-action="select-option" data-option="${key}">${selected === key ? 'Selected' : 'Choose this option'}</button></div>` : ''}
+        ${state.phase === 'task5-choose' ? `<div class="button-row" style="margin-top:14px;"><button class="btn ${selected === key ? 'primary' : ''}" data-action="select-option" data-option="${key}">${selected === key ? '✓ Selected' : 'Choose this option'}</button></div>` : ''}
       </div>
     </div>`;
 }
