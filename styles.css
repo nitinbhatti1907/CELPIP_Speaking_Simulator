@@ -302,7 +302,7 @@ textarea {
 
 .two-col {
   display: grid;
-  grid-template-columns: minmax(280px, 0.95fr) minmax(380px, 1.35fr);
+  grid-template-columns: minmax(360px, 1.1fr) minmax(340px, 1fr);
   gap: 18px;
 }
 
@@ -321,7 +321,7 @@ textarea {
 }
 
 .image-stage {
-  min-height: 280px;
+  min-height: 340px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -332,13 +332,14 @@ textarea {
 }
 
 .image-stage img {
-  max-height: 420px;
+  max-height: 560px;
+  width: 100%;
   object-fit: contain;
   border-radius: 14px;
 }
 
 .notes-box {
-  min-height: 230px;
+  min-height: 150px;
 }
 
 .response-panel {
@@ -357,12 +358,19 @@ textarea {
 }
 
 .option-card .image-wrap {
-  height: 220px;
+  height: 260px;
   background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   border-bottom: 1px solid var(--border);
+}
+
+.option-card .image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 12px;
 }
 
 .option-card .body {
@@ -451,7 +459,6 @@ audio {
 
 @media (max-width: 980px) {
   .hero-grid,
-  .task-layout,
   .two-col,
   .metrics,
   .summary-grid,
@@ -459,9 +466,12 @@ audio {
     grid-template-columns: 1fr;
   }
 
-  .sticky-top,
-  .sidebar {
+  .sticky-top {
     position: static;
+  }
+
+  .brand h1 {
+    font-size: 24px;
   }
 }
 
