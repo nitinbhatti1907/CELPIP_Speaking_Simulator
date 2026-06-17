@@ -946,43 +946,40 @@ function renderSetup() {
         <div class="badge"><span class="badge-dot"></span>${taskDescriptor(task)}</div>
       </div>
 
-      <div class="task-layout">
-        ${renderTaskSidebar()}
-        <main class="main">
-          <section class="panel card">
-            <div class="section-title">
-              <div>
-                <h3>Setup this task</h3>
-                <div class="sub">Enter only the current task now. After completion, the simulator will open the next task setup screen.</div>
-              </div>
+      <main class="main">
+        <section class="panel card">
+          <div class="section-title">
+            <div>
+              <h3>Setup this task</h3>
+              <div class="sub">Enter only the current task now. After completion, the simulator will open the next task setup screen.</div>
             </div>
+          </div>
 
+          <div class="field">
+            <label>Question / prompt</label>
+            <textarea id="prompt-input" placeholder="Paste the full question here...">${escapeHtml(data.prompt)}</textarea>
+          </div>
+
+          ${task.type === 'image' ? `
             <div class="field">
-              <label>Question / prompt</label>
-              <textarea id="prompt-input" placeholder="Paste the full question here...">${escapeHtml(data.prompt)}</textarea>
-            </div>
-
-            ${task.type === 'image' ? `
-              <div class="field">
-                <label>${task.key === 'task4' ? 'Image (optional if you want to reuse Task 3 image)' : 'Image upload'}</label>
-                <div class="upload-line">
-                  <input type="file" id="single-image-input" accept="image/*" />
-                  ${task.key === 'task4' && state.tasks.task3.image ? `<button class="btn" data-action="reuse-task3-image">Use Task 3 image</button>` : ''}
-                </div>
-                <div class="hint">${previewImage ? `Loaded image: ${escapeHtml(previewImageName || 'selected image')}` : 'No image selected yet.'}</div>
+              <label>${task.key === 'task4' ? 'Image (optional if you want to reuse Task 3 image)' : 'Image upload'}</label>
+              <div class="upload-line">
+                <input type="file" id="single-image-input" accept="image/*" />
+                ${task.key === 'task4' && state.tasks.task3.image ? `<button class="btn" data-action="reuse-task3-image">Use Task 3 image</button>` : ''}
               </div>
-              <div class="image-stage">${previewImage ? `<img src="${previewImage}" alt="Task image preview" />` : `<div class="muted">Image preview will appear here.</div>`}</div>` : ''}
-
-            ${task.type === 'task5' ? renderTask5Setup(data) : ''}
-
-            <div class="button-row" style="margin-top:18px;">
-              <button class="btn primary" data-action="save-start-task">Start prep timer</button>
-              <button class="btn" data-action="back-welcome">Back</button>
-              <button class="btn danger" data-action="reset-all">Reset all</button>
+              <div class="hint">${previewImage ? `Loaded image: ${escapeHtml(previewImageName || 'selected image')}` : 'No image selected yet.'}</div>
             </div>
-          </section>
-        </main>
-      </div>
+            <div class="image-stage">${previewImage ? `<img src="${previewImage}" alt="Task image preview" />` : `<div class="muted">Image preview will appear here.</div>`}</div>` : ''}
+
+          ${task.type === 'task5' ? renderTask5Setup(data) : ''}
+
+          <div class="button-row" style="margin-top:18px;">
+            <button class="btn primary" data-action="save-start-task">Start prep timer</button>
+            <button class="btn" data-action="back-welcome">Back</button>
+            <button class="btn danger" data-action="reset-all">Reset all</button>
+          </div>
+        </section>
+      </main>
     </div>`;
 }
 
@@ -1030,24 +1027,24 @@ function renderExam() {
           <h1>${task.label}: ${task.title}</h1>
           <p>Automatic exam flow is running. Prep notes stay visible during your speaking phase.</p>
         </div>
-        <div class="badge"><span class="badge-dot"></span>${phaseLabel()}</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <button class="btn danger" data-action="exit-to-summary" style="padding:8px 14px;font-size:13px;">Exit mock test</button>
+          <div class="badge"><span class="badge-dot"></span>${phaseLabel()}</div>
+        </div>
       </div>
 
-      <div class="task-layout">
-        ${renderTaskSidebar()}
-        <main class="main">
-          <section class="panel card">
-            <div class="metrics">
-              <div class="metric"><div class="label">Task</div><div class="value">${task.label}</div></div>
-              <div class="metric"><div class="label">Type</div><div class="value" style="font-size:18px;">${task.title}</div></div>
-              <div class="metric"><div class="label">Phase</div><div id="phase-value" class="value" style="font-size:18px;">${phaseLabel()}</div></div>
-              <div class="metric timer ${state.phaseSecondsLeft <= 10 ? 'alert' : ''}" id="timer-metric"><div class="label">Time left</div><div id="timer-value" class="value">${formatTime(Math.max(0, state.phaseSecondsLeft))}</div></div>
-            </div>
-          </section>
+      <main class="main">
+        <section class="panel card">
+          <div class="metrics">
+            <div class="metric"><div class="label">Task</div><div class="value">${task.label}</div></div>
+            <div class="metric"><div class="label">Type</div><div class="value" style="font-size:18px;">${task.title}</div></div>
+            <div class="metric"><div class="label">Phase</div><div id="phase-value" class="value" style="font-size:18px;">${phaseLabel()}</div></div>
+            <div class="metric timer ${state.phaseSecondsLeft <= 10 ? 'alert' : ''}" id="timer-metric"><div class="label">Time left</div><div id="timer-value" class="value">${formatTime(Math.max(0, state.phaseSecondsLeft))}</div></div>
+          </div>
+        </section>
 
-          ${task.key === 'task5' ? renderTask5Exam(task, data) : renderRegularExam(task, data)}
-        </main>
-      </div>
+        ${task.key === 'task5' ? renderTask5Exam(task, data) : renderRegularExam(task, data)}
+      </main>
     </div>`;
 }
 
@@ -1225,45 +1222,44 @@ function renderTaskComplete() {
         <div class="badge"><span class="badge-dot"></span>Ready for next step</div>
       </div>
 
-      <div class="task-layout">
-        ${renderTaskSidebar()}
-        <main class="main">
-          <section class="panel card question-box">
-            <div class="label">Question</div>
-            <div class="content">${task.key === 'task5' ? 'Task 5 Part 1 and Part 2 have been completed.' : escapeHtml(data.prompt || 'No prompt entered.')}</div>
-          </section>
+      <main class="main">
+        <section class="panel card question-box">
+          <div class="label">Question</div>
+          <div class="content">${task.key === 'task5' ? 'Task 5 Part 1 and Part 2 have been completed.' : escapeHtml(data.prompt || 'No prompt entered.')}</div>
+        </section>
 
-          <section class="panel card">
-            <div class="section-title">
-              <div>
-                <h3>Your recording</h3>
-                <div class="sub">Recording length: about ${data.durationSeconds || task.speak} seconds</div>
-              </div>
+        <section class="panel card">
+          <div class="section-title">
+            <div>
+              <h3>Your recording</h3>
+              <div class="sub">Recording length: about ${data.durationSeconds || task.speak} seconds</div>
             </div>
-            ${url ? `<audio controls src="${url}"></audio>` : `<div class="muted">No recording is available for this task.</div>`}
-            <div class="button-row" style="margin-top:16px;">
-              <button class="btn ${url ? 'success' : ''}" data-action="download-current" ${url ? '' : 'disabled'}>Download this task</button>
-              <button class="btn primary" data-action="next-task">${state.currentTaskIndex < TASKS.length - 1 ? 'Continue to next task' : 'Go to summary'}</button>
-              <button class="btn" data-action="replay-task-setup">Back to this task setup</button>
-            </div>
-            <div style="margin-top:16px;">
-              ${renderTranscriptCard(task.key)}
-            </div>
-          </section>
-        </main>
-      </div>
+          </div>
+          ${url ? `<audio controls src="${url}"></audio>` : `<div class="muted">No recording is available for this task.</div>`}
+          <div class="button-row" style="margin-top:16px;">
+            <button class="btn ${url ? 'success' : ''}" data-action="download-current" ${url ? '' : 'disabled'}>Download this task</button>
+            <button class="btn primary" data-action="next-task">${state.currentTaskIndex < TASKS.length - 1 ? 'Continue to next task' : 'Go to summary'}</button>
+            <button class="btn" data-action="replay-task-setup">Back to this task setup</button>
+            <button class="btn warning" data-action="exit-to-summary">Finish mock test here</button>
+          </div>
+          <div style="margin-top:16px;">
+            ${renderTranscriptCard(task.key)}
+          </div>
+        </section>
+      </main>
     </div>`;
 }
 
 function renderSummary() {
+  const allDone = state.completedTaskKeys.length === TASKS.length;
   return `
     <div class="app-shell">
       <div class="topbar">
         <div class="brand">
-          <h1>Speaking session summary</h1>
-          <p>All 8 tasks are complete. You can download any task recording again from here.</p>
+          <h1>Speaking session ${allDone ? 'summary' : 'results'}</h1>
+          <p>${allDone ? 'All 8 tasks are complete.' : `${state.completedTaskKeys.length} of 8 tasks completed.`} You can download any finished recording from here.</p>
         </div>
-        <div class="badge"><span class="badge-dot"></span>Session finished</div>
+        <div class="badge"><span class="badge-dot"></span>${allDone ? 'Session finished' : 'Ended early'}</div>
       </div>
 
       <section class="panel card" style="margin-bottom:18px;">
@@ -1459,6 +1455,15 @@ function bindEvents() {
         stopTranscription();
         stopRecording();
         finishTask();
+      }
+
+      if (action === 'exit-to-summary') {
+        clearTimer();
+        stopTranscription();
+        stopMediaTracks();
+        state.view = 'summary';
+        persist();
+        render();
       }
 
       if (action === 'copy-transcript') {
