@@ -1215,6 +1215,7 @@ function renderRegularExam(task, data) {
           <div class="vu-track"><div id="vu-bar" class="vu-fill"></div></div>
         </div>
         <div class="button-row">
+          ${state.phase === 'prep' ? `<button class="btn success" data-action="skip-prep">Start speaking now →</button>` : ''}
           <button class="btn warning" data-action="stop-now">Stop this task now</button>
         </div>
       </section>
@@ -1293,6 +1294,7 @@ function renderTask5Exam(task, data) {
           <div class="vu-track"><div id="vu-bar" class="vu-fill"></div></div>
         </div>
         <div class="button-row">
+          ${state.phase === 'task5-part2-prep' ? `<button class="btn success" data-action="skip-prep">Start speaking now →</button>` : ''}
           <button class="btn warning" data-action="stop-now">Stop this task now</button>
         </div>
       </section>
@@ -1590,6 +1592,11 @@ function bindEvents() {
         currentTaskData().selectedOption = button.dataset.option;
         persist();
         render();
+      }
+
+      if (action === 'skip-prep') {
+        clearTimer();
+        startSpeakingPhase();
       }
 
       if (action === 'stop-now') {
