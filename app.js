@@ -281,6 +281,33 @@ function buildTimestampedTranscript(taskData) {
     .trim();
 }
 
+// Post-process raw Web Speech text to fix the most common recognizer glitches.
+function polishTranscriptText(raw) {
+  let t = String(raw || '').trim();
+  if (!t) return '';
+
+  // 1. Collapse multiple spaces / line-breaks.
+  t = t.replace(/\s+/g, ' ');
+
+  // 2. Remove duplicated consecutive words (e.g. "I I want" → "I want").
+  //    The Web Speech API occasionally emits a word twice at a session boundary.
+  t = t.replace(/\b(\w+)(\s+\1)+\b/gi, '$1');
+
+  // 3. Remove very short "words" that are just recognizer noise (1 char, not "I" or "a").
+  t = t.replace(/\b([b-hj-z])\b/gi, '').replace(/\s+/g, ' ').trim();
+
+  // 4. Capitalize the first letter after .  ?  !
+  t = t.replace(/([.?!]\s+)([a-z])/g, (_, punct, ch) => punct + ch.toUpperCase());
+
+  // 5. Capitalize the very first character.
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+
+  // 6. Fix missing space after comma/period if a letter immediately follows.
+  t = t.replace(/([,.:;?!])([a-zA-Z])/g, '$1 $2');
+
+  return t.trim();
+}
+
 function isSpeakingPhase() {
   return state.phase === 'speak' || state.phase === 'task5-speak';
 }
@@ -342,7 +369,7 @@ function finalizeTranscript(taskKey) {
   if (!Array.isArray(taskData.transcriptSegments)) taskData.transcriptSegments = [];
 
   // Capture any trailing words that were still interim when the phase ended.
-  const trailing = String(taskData.interimTranscript || '').trim();
+  const trailing = polishTranscriptText(taskData.interimTranscript);
   if (trailing) {
     const startSec = pendingSegmentStartSec !== null ? pendingSegmentStartSec : elapsedTranscriptSeconds();
     taskData.transcriptSegments.push({ t: startSec, text: trailing });
@@ -453,7 +480,7 @@ function startTranscription(taskKey) {
   recognition.lang = 'en-CA';
   recognition.continuous = true;
   recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
+  recognition.maxAlternatives = 3;
 
   taskData.transcriptStatus = 'listening';
   persist();
@@ -467,15 +494,27 @@ function startTranscription(taskKey) {
     let interimChunk = '';
 
     for (let i = event.resultIndex; i < event.results.length; i += 1) {
-      const piece = String(event.results[i][0]?.transcript || '').trim();
+      // Pick the alternative with the highest confidence score.
+      const result = event.results[i];
+      let bestText = '';
+      let bestConfidence = -1;
+      for (let a = 0; a < result.length; a += 1) {
+        const alt = result[a];
+        const conf = typeof alt.confidence === 'number' ? alt.confidence : 0;
+        if (conf > bestConfidence || bestText === '') {
+          bestConfidence = conf;
+          bestText = String(alt.transcript || '').trim();
+        }
+      }
+      const piece = polishTranscriptText(bestText);
       if (!piece) continue;
 
-      // Mark the start time of a new spoken segment when its first words arrive.
+      // Mark the start time of this spoken segment when its first words arrive.
       if (pendingSegmentStartSec === null) {
         pendingSegmentStartSec = elapsedTranscriptSeconds();
       }
 
-      if (event.results[i].isFinal) {
+      if (result.isFinal) {
         target.transcriptSegments.push({ t: pendingSegmentStartSec, text: piece });
         pendingSegmentStartSec = null;
       } else {
@@ -600,7 +639,20 @@ async function ensureMic() {
     throw new Error('Your browser does not support microphone recording here.');
   }
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  // Request high-quality, clean audio — noise suppression and echo cancellation
+  // feed a cleaner signal to the browser's speech recognizer and reduce mishearings.
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      sampleRate: { ideal: 48000 },
+      channelCount: { ideal: 1 }
+    }
+  }).catch(() =>
+    // Fall back to basic audio if constrained request is denied/unsupported.
+    navigator.mediaDevices.getUserMedia({ audio: true })
+  );
   state.media.stream = stream;
   setupVuMeter(stream);
   return stream;
