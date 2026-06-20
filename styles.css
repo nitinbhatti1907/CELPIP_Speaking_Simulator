@@ -598,8 +598,8 @@ audio { width: 100%; }
 .footer-note { margin-top: 12px; font-size: 13px; color: var(--muted); }
 
 .transcript-card { display: grid; gap: 0; }
-.transcript-box { min-height: 140px; resize: vertical; background: #fff; }
-.transcript-box.compact { min-height: 110px; }
+.transcript-box { min-height: 220px; resize: vertical; background: #fff; line-height: 1.7; font-size: 14.5px; }
+.transcript-card.compact .transcript-box { min-height: 150px; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 980px) {

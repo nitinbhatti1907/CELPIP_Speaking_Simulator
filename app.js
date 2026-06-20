@@ -100,6 +100,7 @@ function emptyTaskData() {
     recordingMimeType: '',
     durationSeconds: 0,
     transcript: '',
+    transcriptSegments: [],
     interimTranscript: '',
     transcriptStatus: 'idle',
     transcriptError: '',
@@ -139,6 +140,10 @@ let vuAnimation = null;
 let speechRecognition = null;
 let activeTranscriptTaskKey = '';
 let transcriptKeepAlive = false;
+let transcriptStartMs = 0;
+let pendingSegmentStartSec = null;
+let transcriptRestartTimer = null;
+let transcriptWatchdog = null;
 
 render();
 
@@ -250,6 +255,32 @@ function joinTranscript(base, addition) {
   return `${left} ${right}`.replace(/\s+/g, ' ').trim();
 }
 
+function formatStamp(totalSeconds) {
+  const safe = Math.max(0, Math.floor(totalSeconds || 0));
+  const minutes = Math.floor(safe / 60);
+  const seconds = safe % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+// Light tidy-up: trim, collapse spaces, capitalise the first letter of the chunk.
+function cleanSegmentText(raw) {
+  let text = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  return text;
+}
+
+// Builds the timestamped transcript from captured segments, e.g.
+// "(0:00) Hi Maria, how have you been? (0:07) Moving is tough."
+function buildTimestampedTranscript(taskData) {
+  const segments = Array.isArray(taskData.transcriptSegments) ? taskData.transcriptSegments : [];
+  return segments
+    .filter((seg) => seg && String(seg.text || '').trim())
+    .map((seg) => `(${formatStamp(seg.t)}) ${cleanSegmentText(seg.text)}`)
+    .join(' ')
+    .trim();
+}
+
 function isSpeakingPhase() {
   return state.phase === 'speak' || state.phase === 'task5-speak';
 }
@@ -280,7 +311,7 @@ function updateTranscriptUI(taskKey) {
   if (!taskData) return;
 
   const transcriptText = transcriptDisplayText(taskData);
-  const helperText = taskData.transcriptError || (transcriptText ? 'You can copy the final transcript after the task ends.' : 'Transcript will appear here after you speak in Chrome.');
+  const helperText = taskData.transcriptError || (transcriptText ? 'Each line is timestamped from the start of your recording. Copy the full transcript after the task ends.' : 'A timestamped transcript will appear here while you speak (works best in Chrome or Edge).');
   const canCopy = Boolean(String(taskData.transcript || '').trim());
 
   document.querySelectorAll(`[data-transcript-status="${taskKey}"]`).forEach((node) => {
@@ -307,7 +338,20 @@ function updateTranscriptUI(taskKey) {
 function finalizeTranscript(taskKey) {
   const taskData = state.tasks[taskKey];
   if (!taskData) return;
+
+  if (!Array.isArray(taskData.transcriptSegments)) taskData.transcriptSegments = [];
+
+  // Capture any trailing words that were still interim when the phase ended.
+  const trailing = String(taskData.interimTranscript || '').trim();
+  if (trailing) {
+    const startSec = pendingSegmentStartSec !== null ? pendingSegmentStartSec : elapsedTranscriptSeconds();
+    taskData.transcriptSegments.push({ t: startSec, text: trailing });
+  }
+  pendingSegmentStartSec = null;
+
+  taskData.transcript = buildTimestampedTranscript(taskData);
   taskData.interimTranscript = '';
+
   if (String(taskData.transcript || '').trim()) {
     taskData.transcriptStatus = 'ready';
   } else if (taskData.transcriptStatus !== 'unsupported') {
@@ -321,6 +365,15 @@ function stopTranscription(forceAbort = false) {
   transcriptKeepAlive = false;
   const taskKey = activeTranscriptTaskKey;
   activeTranscriptTaskKey = '';
+
+  if (transcriptRestartTimer) {
+    window.clearTimeout(transcriptRestartTimer);
+    transcriptRestartTimer = null;
+  }
+  if (transcriptWatchdog) {
+    window.clearInterval(transcriptWatchdog);
+    transcriptWatchdog = null;
+  }
 
   const recognition = speechRecognition;
   speechRecognition = null;
@@ -345,12 +398,40 @@ function stopTranscription(forceAbort = false) {
   if (taskKey) finalizeTranscript(taskKey);
 }
 
+function elapsedTranscriptSeconds() {
+  if (!transcriptStartMs) return 0;
+  return Math.max(0, (Date.now() - transcriptStartMs) / 1000);
+}
+
+// Resilient restart: retries a few times so a stray InvalidStateError or a
+// late onend during a brief silence does not permanently kill the transcript.
+function restartRecognition(recognition, taskKey, attempt = 0) {
+  if (speechRecognition !== recognition || !transcriptKeepAlive || activeTranscriptTaskKey !== taskKey || !isSpeakingPhase()) return;
+  try {
+    recognition.start();
+    const target = state.tasks[taskKey];
+    if (target) {
+      target.transcriptStatus = 'listening';
+      updateTranscriptUI(taskKey);
+    }
+  } catch (_) {
+    if (attempt < 5) {
+      transcriptRestartTimer = window.setTimeout(() => restartRecognition(recognition, taskKey, attempt + 1), 250);
+    } else {
+      speechRecognition = null;
+      activeTranscriptTaskKey = '';
+      finalizeTranscript(taskKey);
+    }
+  }
+}
+
 function startTranscription(taskKey) {
   const taskData = state.tasks[taskKey];
   if (!taskData) return;
 
   stopTranscription(true);
   taskData.transcript = '';
+  taskData.transcriptSegments = [];
   taskData.interimTranscript = '';
   taskData.transcriptError = '';
 
@@ -366,6 +447,8 @@ function startTranscription(taskKey) {
   speechRecognition = recognition;
   activeTranscriptTaskKey = taskKey;
   transcriptKeepAlive = true;
+  transcriptStartMs = Date.now();
+  pendingSegmentStartSec = null;
 
   recognition.lang = 'en-CA';
   recognition.continuous = true;
@@ -379,23 +462,28 @@ function startTranscription(taskKey) {
   recognition.onresult = (event) => {
     const target = state.tasks[taskKey];
     if (!target) return;
+    if (!Array.isArray(target.transcriptSegments)) target.transcriptSegments = [];
 
-    let finalChunk = '';
     let interimChunk = '';
 
     for (let i = event.resultIndex; i < event.results.length; i += 1) {
       const piece = String(event.results[i][0]?.transcript || '').trim();
       if (!piece) continue;
+
+      // Mark the start time of a new spoken segment when its first words arrive.
+      if (pendingSegmentStartSec === null) {
+        pendingSegmentStartSec = elapsedTranscriptSeconds();
+      }
+
       if (event.results[i].isFinal) {
-        finalChunk = joinTranscript(finalChunk, piece);
+        target.transcriptSegments.push({ t: pendingSegmentStartSec, text: piece });
+        pendingSegmentStartSec = null;
       } else {
         interimChunk = joinTranscript(interimChunk, piece);
       }
     }
 
-    if (finalChunk) {
-      target.transcript = joinTranscript(target.transcript, finalChunk);
-    }
+    target.transcript = buildTimestampedTranscript(target);
     target.interimTranscript = interimChunk;
     target.transcriptStatus = 'listening';
     persist();
@@ -404,12 +492,16 @@ function startTranscription(taskKey) {
 
   recognition.onerror = (event) => {
     const target = state.tasks[taskKey];
-    if (!target || event.error === 'aborted') return;
+    if (!target) return;
 
-    if (event.error === 'no-speech') {
-      target.transcriptError = 'No speech was detected for part of this response.';
+    // Recoverable errors: onend will auto-restart, so do not surface a scary message.
+    if (event.error === 'aborted' || event.error === 'no-speech' || event.error === 'network') return;
+
+    if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+      transcriptKeepAlive = false;
+      target.transcriptError = 'Microphone access is blocked, so the transcript could not run.';
     } else if (event.error === 'audio-capture') {
-      target.transcriptError = 'Audio capture issue affected the transcript.';
+      target.transcriptError = 'Audio capture issue affected part of the transcript.';
     } else {
       target.transcriptError = `Transcript issue: ${event.error}`;
     }
@@ -420,22 +512,11 @@ function startTranscription(taskKey) {
   recognition.onend = () => {
     const target = state.tasks[taskKey];
     if (!target) return;
-
     if (speechRecognition !== recognition) return;
 
+    // Keep transcribing across Chrome's periodic auto-stops until the phase ends.
     if (transcriptKeepAlive && activeTranscriptTaskKey === taskKey && isSpeakingPhase()) {
-      window.setTimeout(() => {
-        if (speechRecognition !== recognition || !transcriptKeepAlive || activeTranscriptTaskKey !== taskKey || !isSpeakingPhase()) return;
-        try {
-          recognition.start();
-          target.transcriptStatus = 'listening';
-          updateTranscriptUI(taskKey);
-        } catch (_) {
-          speechRecognition = null;
-          activeTranscriptTaskKey = '';
-          finalizeTranscript(taskKey);
-        }
-      }, 160);
+      transcriptRestartTimer = window.setTimeout(() => restartRecognition(recognition, taskKey), 160);
       return;
     }
 
@@ -454,7 +535,21 @@ function startTranscription(taskKey) {
     taskData.transcriptError = 'Live transcript could not start in this browser session.';
     persist();
     updateTranscriptUI(taskKey);
+    return;
   }
+
+  // Watchdog: if recognition silently dies while we still expect it, revive it.
+  if (transcriptWatchdog) window.clearInterval(transcriptWatchdog);
+  transcriptWatchdog = window.setInterval(() => {
+    if (!transcriptKeepAlive || activeTranscriptTaskKey !== taskKey || !isSpeakingPhase()) {
+      window.clearInterval(transcriptWatchdog);
+      transcriptWatchdog = null;
+      return;
+    }
+    if (speechRecognition === recognition) {
+      try { recognition.start(); } catch (_) { /* already running - expected */ }
+    }
+  }, 4000);
 }
 
 async function copyTranscript(taskKey, button) {
@@ -636,6 +731,7 @@ function startPrepPhase() {
   data.recordingMimeType = '';
   data.durationSeconds = 0;
   data.transcript = '';
+  data.transcriptSegments = [];
   data.interimTranscript = '';
   data.transcriptStatus = 'idle';
   data.transcriptError = '';
@@ -1155,7 +1251,7 @@ function renderTask5Exam(task, data) {
 function renderTranscriptCard(taskKey, compact = false) {
   const taskData = state.tasks[taskKey];
   const transcriptText = transcriptDisplayText(taskData);
-  const helperText = taskData.transcriptError || (transcriptText ? 'Copy the final transcript after the task ends.' : 'Transcript will appear here after a successful recording in Chrome.');
+  const helperText = taskData.transcriptError || (transcriptText ? 'Each line is timestamped from the start of your recording. Copy the full transcript after the task ends.' : 'A timestamped transcript will appear here while you speak (works best in Chrome or Edge).');
   return `
     <div class="audio-card transcript-card ${compact ? 'compact' : ''}">
       <div class="mini-row" style="justify-content:space-between; margin-bottom:12px;">
