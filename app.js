@@ -962,6 +962,7 @@ function renderSetup() {
 
           <div class="button-row" style="margin-top:18px;">
             <button class="btn primary" data-action="save-start-task">Start prep timer</button>
+            ${state.currentTaskIndex < TASKS.length - 1 ? `<button class="btn" data-action="skip-task">Skip to next task →</button>` : ''}
             <button class="btn" data-action="back-welcome">Back</button>
             <button class="btn danger" data-action="reset-all">Reset all</button>
           </div>
@@ -1016,6 +1017,7 @@ function renderExam() {
         </div>
         <div class="topbar-actions">
           <button class="btn danger" data-action="exit-to-summary">Exit mock test</button>
+          ${state.currentTaskIndex < TASKS.length - 1 ? `<button class="btn" data-action="skip-task">Skip task →</button>` : ''}
           <div class="badge"><span class="badge-dot"></span>${phaseLabel()}</div>
         </div>
       </div>
@@ -1447,6 +1449,13 @@ function bindEvents() {
         stopTranscription();
         stopRecording();
         finishTask();
+      }
+
+      if (action === 'skip-task') {
+        clearTimer();
+        stopTranscription();
+        stopMediaTracks();
+        moveToNextTask();
       }
 
       if (action === 'exit-to-summary') {
